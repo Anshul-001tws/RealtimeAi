@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live AI Voice Chat</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+        }
+
+        h1 {
+            text-align: center;
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+
+        .status-bar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .status-bar.recording {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .status-bar.processing {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.7;
+            }
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            padding: 15px 40px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        #clearBtn {
+            background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+            color: #333;
+        }
+
+        .visualizer {
+            height: 120px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .visualizer canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        .conversation {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-bottom: 20px;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            padding: 12px 15px;
+            border-radius: 10px;
+            line-height: 1.5;
+        }
+
+        .message.user {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            margin-left: 20%;
+        }
+
+        .message.ai {
+            background: white;
+            color: #333;
+            margin-right: 20%;
+            border: 2px solid #667eea;
+        }
+
+        .message.system {
+            background: #e9ecef;
+            color: #666;
+            text-align: center;
+            font-style: italic;
+        }
+
+        .info-box {
+            background: #e7f3ff;
+            border-left: 4px solid #2196F3;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+            font-size: 0.9em;
+            color: #333;
+        }
+
+        .info-box strong {
+            color: #2196F3;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 20px;
+            }
+
+            h1 {
+                font-size: 2em;
+            }
+
+            .controls {
+                flex-direction: column;
+            }
+
+            button {
+                width: 100%;
+            }
+        }
+
+        .recording-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            background: #f5576c;
+            border-radius: 50%;
+            margin-right: 8px;
+            animation: blink 1s ease-in-out infinite;
+        }
+
+        @keyframes blink {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.3;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🎙️ Live AI Voice Chat</h1>
+        <p class="subtitle">Continuous conversation powered by Gemini</p>
+
+        <div id="statusBar" class="status-bar">
+            Ready to Connect
+        </div>
+
+        <div class="visualizer">
+            <canvas id="visualizer"></canvas>
+        </div>
+
+        <div class="video-container" style="display: none; margin-bottom: 20px; justify-content: center;">
+            <video id="localVideo" autoplay playsinline muted
+                style="width: 100%; max-width: 500px; border-radius: 10px; border: 2px solid #667eea;"></video>
+        </div>
+
+        <div class="controls">
+            <button id="connectBtn">Connect</button>
+            <button id="videoBtn">Video</button>
+            <button id="screenBtn">Share Screen</button>
+            <button id="cancelBtn" style="background: #f5576c; color: white;">Cancel</button>
+        </div>
+
+        <div class="conversation" id="conversation">
+            <div class="message system">Click "Connect" to start the conversation.</div>
+        </div>
+
+        <div class="info-box">
+            <strong>🎤 Always Listening:</strong> This chat is continuously active. Just speak naturally and the AI will
+            respond with voice in real-time.
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let mediaRecorder = null;
+        let audioContext = null;
+        let analyser = null;
+        let animationId = null;
+        let audioChunks = [];
+        let isRecording = false;
+
+        const connectBtn = document.getElementById('connectBtn');
+        const videoBtn = document.getElementById('videoBtn');
+        const screenBtn = document.getElementById('screenBtn');
+        const cancelBtn = document.getElementById('cancelBtn');
+        const statusBar = document.getElementById('statusBar');
+        const conversation = document.getElementById('conversation');
+        const visualizerCanvas = document.getElementById('visualizer');
+        const canvasCtx = visualizerCanvas.getContext('2d');
+        const localVideo = document.getElementById('localVideo');
+        const videoContainer = document.querySelector('.video-container');
+
+        // Initialize WebSocket connection
+        function connectWebSocket() {
+            if (ws) {
+                console.log('Already connected');
+                return;
+            }
+
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws/audio`;
+
+            updateStatus('Connecting...', false);
+            ws = new WebSocket(wsUrl);
+
+            ws.onopen = async () => {
+                updateStatus('Connected! Starting audio...', false);
+                addMessage('system', 'Connected to AI - Speak naturally!');
+                connectBtn.disabled = true;
+                connectBtn.textContent = 'Connected';
+                // Auto-start recording when connected
+                await startRecording();
+            };
+
+            ws.onmessage = async (event) => {
+                console.log("Event: ", event)
+                const data = JSON.parse(event.data);
+
+                if (data.type === 'audio') {
+                    // Receive and play audio response
+                    const audioData = base64ToArrayBuffer(data.data);
+                    await playAudio(audioData);
+                    addMessage('ai', '🔊 AI response (audio)');
+                } else if (data.type === 'text') {
+                    addMessage('ai', data.text);
+                } else if (data.type === 'status') {
+                    updateStatus(data.message, false);
+                } else if (data.type === 'error') {
+                    updateStatus('Error: ' + data.message, false);
+                    addMessage('system', 'Error: ' + data.message);
+                }
+            };
+
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                updateStatus('Connection error', false);
+                connectBtn.disabled = false;
+                connectBtn.textContent = 'Connect';
+            };
+
+            ws.onclose = () => {
+                updateStatus('Disconnected', false);
+                addMessage('system', 'Connection closed.');
+                connectBtn.disabled = false;
+                connectBtn.textContent = 'Connect';
+                ws = null;
+
+                // Cleanup audio
+                stopAudio();
+            };
+        }
+
+        function stopAudio() {
+            if (window.audioProcessor) {
+                window.audioProcessor.disconnect();
+                window.audioProcessor = null;
+            }
+            if (window.audioSource) {
+                window.audioSource.disconnect();
+                window.audioSource = null;
+            }
+            if (window.audioStream) {
+                window.audioStream.getTracks().forEach(track => track.stop());
+                window.audioStream = null;
+            }
+            if (audioContext) {
+                audioContext.close();
+                audioContext = null;
+            }
+            isRecording = false;
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+                animationId = null; // Reset animationId
+            }
+            // Clear visualizer
+            canvasCtx.fillStyle = '#f8f9fa';
+            canvasCtx.fillRect(0, 0, visualizerCanvas.width, visualizerCanvas.height);
+            nextStartTime = 0;
+        }
+
+        // Start recording
+        async function startRecording() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        channelCount: 1,
+                        sampleRate: 16000,
+                        echoCancellation: true,
+                        noiseSuppression: true
+                    }
+                });
+
+                // Set up audio context for visualization AND PCM capture
+                // Allow system default sample rate for better playback quality (resampling will happen in destination)
+                audioContext = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' });
+                analyser = audioContext.createAnalyser();
+                const source = audioContext.createMediaStreamSource(stream);
+                source.connect(analyser);
+                analyser.fftSize = 2048;
+
+                visualize();
+
+                // Use ScriptProcessorNode to get raw PCM audio data
+                // We need to resample if context rate != 16000
+                const bufferSize = 4096;
+                const processor = audioContext.createScriptProcessor(bufferSize, 1, 1);
+                source.connect(processor);
+                processor.connect(audioContext.destination);
+
+                processor.onaudioprocess = (e) => {
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        try {
+                            // Get the raw audio data (Float32Array)
+                            let inputData = e.inputBuffer.getChannelData(0);
+
+                            // Simple downsampling if context is not 16kHz
+                            // (Note: This is a naive decimation. For production, use better resampling)
+                            if (audioContext.sampleRate > 16000) {
+                                const ratio = audioContext.sampleRate / 16000;
+                                const newLength = Math.floor(inputData.length / ratio);
+                                const downsampled = new Float32Array(newLength);
+                                for (let i = 0; i < newLength; i++) {
+                                    downsampled[i] = inputData[Math.floor(i * ratio)];
+                                }
+                                inputData = downsampled;
+                            }
+
+                            // Convert Float32 (-1.0 to 1.0) to Int16 PCM
+                            const pcmData = new Int16Array(inputData.length);
+                            for (let i = 0; i < inputData.length; i++) {
+                                // Clamp to [-1, 1] and convert to 16-bit integer
+                                const s = Math.max(-1, Math.min(1, inputData[i]));
+                                pcmData[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+                            }
+
+                            // Convert Int16Array to binary string efficiently
+                            let binary = '';
+                            const bytes = new Uint8Array(pcmData.buffer);
+                            const len = bytes.byteLength;
+                            for (let i = 0; i < len; i++) {
+                                binary += String.fromCharCode(bytes[i]);
+                            }
+
+                            // Convert to base64
+                            const base64Data = btoa(binary);
+
+                            ws.send(JSON.stringify({
+                                type: 'audio_chunk',
+                                data: base64Data
+                            }));
+                        } catch (err) {
+                            console.error('Error processing audio:', err);
+                        }
+                    }
+                };
+
+                // Store references for cleanup
+                window.audioStream = stream;
+                window.audioProcessor = processor;
+                window.audioSource = source;
+
+                isRecording = true;
+                updateStatus('🎤 Listening... Speak naturally!', true);
+                addMessage('system', '🎤 Microphone active - Ready to chat!');
+
+            } catch (error) {
+                console.error('Error starting recording:', error);
+                updateStatus('⚠️ Microphone access required', false);
+                addMessage('system', 'Please allow microphone access and try again.');
+            }
+        }
+
+        // Visualize audio
+        function visualize() {
+            const bufferLength = analyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+
+            visualizerCanvas.width = visualizerCanvas.offsetWidth;
+            visualizerCanvas.height = visualizerCanvas.offsetHeight;
+
+            function draw() {
+                if (!isRecording) return;
+                animationId = requestAnimationFrame(draw);
+
+                analyser.getByteTimeDomainData(dataArray);
+
+                canvasCtx.fillStyle = '#f8f9fa';
+                canvasCtx.fillRect(0, 0, visualizerCanvas.width, visualizerCanvas.height);
+
+                canvasCtx.lineWidth = 2;
+                canvasCtx.strokeStyle = '#667eea';
+
+                canvasCtx.beginPath();
+
+                const sliceWidth = visualizerCanvas.width * 1.0 / bufferLength;
+                let x = 0;
+
+                for (let i = 0; i < bufferLength; i++) {
+                    const v = dataArray[i] / 128.0;
+                    const y = v * visualizerCanvas.height / 2;
+
+                    if (i === 0) {
+                        canvasCtx.moveTo(x, y);
+                    } else {
+                        canvasCtx.lineTo(x, y);
+                    }
+
+                    x += sliceWidth;
+                }
+
+                canvasCtx.lineTo(visualizerCanvas.width, visualizerCanvas.height / 2);
+                canvasCtx.stroke();
+            }
+
+            draw();
+        }
+
+        // Play received audio
+        let nextStartTime = 0;
+
+        async function playAudio(arrayBuffer) {
+            try {
+                if (!audioContext) {
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' });
+                }
+
+                if (audioContext.state === 'suspended') {
+                    await audioContext.resume();
+                }
+
+                const pcm16 = new Int16Array(arrayBuffer);
+                const float32 = new Float32Array(pcm16.length);
+
+                // Convert Int16 to Float32 (-1.0 to 1.0)
+                for (let i = 0; i < pcm16.length; i++) {
+                    float32[i] = pcm16[i] / 32768.0;
+                }
+
+                // Create AudioBuffer (1 channel, 24kHz sample rate)
+                const audioBuffer = audioContext.createBuffer(1, float32.length, 24000);
+                audioBuffer.getChannelData(0).set(float32);
+
+                const source = audioContext.createBufferSource();
+                source.buffer = audioBuffer;
+                source.connect(audioContext.destination);
+
+                // Schedule audio to play sequentially
+                const currentTime = audioContext.currentTime;
+                const startTime = Math.max(currentTime, nextStartTime);
+
+                source.start(startTime);
+
+                nextStartTime = startTime + audioBuffer.duration;
+
+                updateStatus('🔊 Playing AI response...', true);
+
+                source.onended = () => {
+                    if (audioContext.currentTime >= nextStartTime - 0.1) {
+                        updateStatus('🎤 Listening... Speak naturally!', true);
+                    }
+                };
+            } catch (error) {
+                console.error('Error playing audio:', error);
+                updateStatus('Error playing audio', false);
+            }
+        }
+
+        // Helper: Convert base64 to ArrayBuffer
+        function base64ToArrayBuffer(base64) {
+            const binaryString = window.atob(base64);
+            const len = binaryString.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            return bytes.buffer;
+        }
+
+        // Update status bar
+        function updateStatus(message, isActive) {
+            statusBar.textContent = message;
+            statusBar.className = 'status-bar';
+
+            if (isRecording) {
+                statusBar.className += ' recording';
+                statusBar.innerHTML = '<span class="recording-indicator"></span>' + message;
+            } else if (isActive) {
+                statusBar.className += ' processing';
+            }
+        }
+
+        // Add message to conversation
+        function addMessage(type, text) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+            messageDiv.textContent = text;
+            conversation.appendChild(messageDiv);
+            conversation.scrollTop = conversation.scrollHeight;
+        }
+
+        // Video Logic
+        videoBtn.addEventListener('click', async () => {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                localVideo.srcObject = stream;
+                videoContainer.style.display = 'flex';
+                addMessage('system', '🎥 Camera started');
+                startVideoTransmission(stream);
+            } catch (err) {
+                console.error("Error accessing camera: ", err);
+                addMessage('system', '❌ Error accessing camera');
+            }
+        });
+
+        // Screen Share Logic
+        screenBtn.addEventListener('click', async () => {
+            try {
+                const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+                localVideo.srcObject = stream;
+                videoContainer.style.display = 'flex';
+                addMessage('system', '🖥️ Screen sharing started');
+                startVideoTransmission(stream);
+
+                // Handle stop sharing
+                stream.getVideoTracks()[0].onended = () => {
+                    stopVideoTransmission();
+                    videoContainer.style.display = 'none';
+                    addMessage('system', '⏹️ Screen sharing stopped');
+                };
+            } catch (err) {
+                console.error("Error accessing screen: ", err);
+                addMessage('system', '❌ Error sharing screen');
+            }
+        });
+
+        let videoInterval = null;
+
+        function startVideoTransmission(stream) {
+            stopVideoTransmission(); // Ensure no previous interval
+
+            const track = stream.getVideoTracks()[0];
+            const imageCapture = new ImageCapture(track);
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+
+            // Send frames every 1 second (1 FPS)
+            videoInterval = setInterval(async () => {
+                if (ws && ws.readyState === WebSocket.OPEN && stream.active) {
+                    try {
+                        const bitmap = await imageCapture.grabFrame();
+
+                        // Resize to reduce bandwidth (e.g., 640px width)
+                        const scale = 640 / bitmap.width;
+                        canvas.width = 640;
+                        canvas.height = bitmap.height * scale;
+
+                        ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+
+                        // Convert to base64 JPEG
+                        const base64 = canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
+
+                        ws.send(JSON.stringify({
+                            type: 'image',
+                            data: base64
+                        }));
+                    } catch (err) {
+                        console.error("Frame capture error:", err);
+                    }
+                }
+            }, 1000);
+        }
+
+        function stopVideoTransmission() {
+            if (videoInterval) {
+                clearInterval(videoInterval);
+                videoInterval = null;
+            }
+        }
+
+        // Cancel Logic
+        cancelBtn.addEventListener('click', () => {
+            // Stop WebSocket
+            if (ws) {
+                ws.close();
+            }
+
+            // Stop Audio
+            stopAudio();
+
+            // Stop Video Transmission
+            stopVideoTransmission();
+
+            // Stop Video/Screen
+            if (localVideo.srcObject) {
+                localVideo.srcObject.getTracks().forEach(track => track.stop());
+                localVideo.srcObject = null;
+                videoContainer.style.display = 'none';
+            }
+
+            updateStatus('Cancelled', false);
+            addMessage('system', '⏹️ Operation cancelled');
+            connectBtn.disabled = false;
+            connectBtn.textContent = 'Connect';
+        });
+
+        // Event listeners
+        connectBtn.addEventListener('click', connectWebSocket);
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            if (ws) {
+                ws.close();
+            }
+            stopAudio();
+            stopVideoTransmission();
+            if (localVideo.srcObject) {
+                localVideo.srcObject.getTracks().forEach(track => track.stop());
+            }
+        });
+    </script>
+</body>
+
+</html>
